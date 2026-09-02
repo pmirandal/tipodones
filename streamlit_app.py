@@ -44,7 +44,7 @@ log_sheet = spreadsheet.worksheet(
 )
 
 # =====================================================
-# TÍTULO
+# TITULO
 # =====================================================
 
 st.title(
@@ -69,9 +69,7 @@ def obtener_hoja(material):
 @st.cache_data(ttl=10)
 def obtener_registros(material):
 
-    hoja = obtener_hoja(
-        material
-    )
+    hoja = obtener_hoja(material)
 
     return hoja.get_all_records()
 
@@ -94,53 +92,6 @@ def buscar_fila_codigo(
 
     return None, None
 
-
-def actualizar_registro(
-    hoja,
-    codigo,
-    estado,
-    ubicacion
-):
-
-    fila, registro = buscar_fila_codigo(
-        hoja,
-        codigo
-    )
-
-    if fila is None:
-
-        return None
-
-    encabezados = hoja.row_values(1)
-
-    col_estado = (
-        encabezados.index("Estado")
-        + 1
-    )
-
-    col_ubicacion = (
-        encabezados.index("Ubicación")
-        + 1
-    )
-
-    estado_anterior = registro[
-        "Estado"
-    ]
-
-    hoja.update_cell(
-        fila,
-        col_estado,
-        estado
-    )
-
-    hoja.update_cell(
-        fila,
-        col_ubicacion,
-        ubicacion
-    )
-
-    return estado_anterior
-
 # =====================================================
 # MENU
 # =====================================================
@@ -155,21 +106,22 @@ opcion = st.radio(
     ],
     horizontal=True
 )
-
 # =====================================================
-# SELECCIÓN DE MATERIAL
+# MATERIAL
 # =====================================================
 
 material = st.selectbox(
     "Material",
-    list(
-        MATERIALES.keys()
-    )
+    list(MATERIALES.keys())
 )
 
 datos = obtener_registros(
     material
 )
+
+# =====================================================
+# TIPO
+# =====================================================
 
 tipo = None
 
@@ -188,6 +140,10 @@ if material != "Máscaras":
         tipos
     )
 
+# =====================================================
+# DETALLE
+# =====================================================
+
 detalle = None
 
 if material == "Encías":
@@ -204,6 +160,10 @@ if material == "Encías":
         "Detalle",
         detalles
     )
+
+# =====================================================
+# FILTRAR DATOS
+# =====================================================
 
 filtrados = datos.copy()
 
@@ -263,35 +223,12 @@ if opcion == "🔍 Consultar":
 
     c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-    c1.metric(
-        "Total",
-        total
-    )
-
-    c2.metric(
-        "SMP",
-        smp
-    )
-
-    c3.metric(
-        "La Molina",
-        molina
-    )
-
-    c4.metric(
-        "Buenos",
-        buenos
-    )
-
-    c5.metric(
-        "Deteriorados",
-        deteriorados
-    )
-
-    c6.metric(
-        "Sin existencia",
-        sin_existencia
-    )
+    c1.metric("Total", total)
+    c2.metric("SMP", smp)
+    c3.metric("La Molina", molina)
+    c4.metric("Buenos", buenos)
+    c5.metric("Deteriorados", deteriorados)
+    c6.metric("Sin existencia", sin_existencia)
 
     st.markdown("---")
 
@@ -330,9 +267,9 @@ elif opcion in [
 
     codigos = []
 
-    # -----------------------------------
+    # ------------------------------------
     # UNIDAD
-    # -----------------------------------
+    # ------------------------------------
 
     if modo == "Unidad":
 
@@ -343,9 +280,9 @@ elif opcion in [
 
         codigos = [codigo]
 
-    # -----------------------------------
+    # ------------------------------------
     # RANGO
-    # -----------------------------------
+    # ------------------------------------
 
     elif modo == "Rango":
 
@@ -379,13 +316,12 @@ elif opcion in [
         ]
 
         st.info(
-            f"Se seleccionarán "
-            f"{len(codigos)} registros"
+            f"Se seleccionarán {len(codigos)} registros"
         )
 
-    # -----------------------------------
+    # ------------------------------------
     # MULTIPLE
-    # -----------------------------------
+    # ------------------------------------
 
     else:
 
@@ -415,16 +351,16 @@ elif opcion in [
         "Observación"
     )
 
-    # -----------------------------------
-    # BOTON
-    # -----------------------------------
+    # =====================================
+    # GUARDAR
+    # =====================================
 
     if st.button(
         "Guardar",
         use_container_width=True
     ):
 
-        if len(codigos) == 0:
+        if not codigos:
 
             st.warning(
                 "Selecciona al menos un código."
@@ -440,38 +376,106 @@ elif opcion in [
 
         actualizados = 0
 
+        # =====================================
+        # LEER HOJA UNA SOLA VEZ
+        # =====================================
+
+        todos_los_valores = hoja.get_all_values()
+
+        encabezados = todos_los_valores[0]
+
+        registros = [
+            dict(zip(encabezados, fila))
+            for fila in todos_los_valores[1:]
+        ]
+
+        indice_codigos = {}
+
+        for fila_num, registro in enumerate(
+            registros,
+            start=2
+        ):
+
+            indice_codigos[
+                registro["Código"]
+            ] = (
+                fila_num,
+                registro
+            )
+
+        # =====================================
+        # CALCULAR COLUMNAS
+        # =====================================
+
+        col_estado = (
+            encabezados.index("Estado")
+            + 1
+        )
+
+        col_ubicacion = (
+            encabezados.index("Ubicación")
+            + 1
+        )
+
+        letra_estado = chr(
+            64 + col_estado
+        )
+
+        letra_ubicacion = chr(
+            64 + col_ubicacion
+        )
+
+        # =====================================
+        # ACUMULADORES
+        # =====================================
+
+        actualizaciones = []
+
+        filas_in = []
+
+        filas_out = []
+
+        filas_log = []
+
+        # =====================================
+        # PROCESAR
+        # =====================================
+
         for codigo in codigos:
 
-            fila, registro = buscar_fila_codigo(
-                hoja,
+            if codigo not in indice_codigos:
+                continue
+
+            fila, registro = indice_codigos[
                 codigo
+            ]
+
+            estado_anterior = registro[
+                "Estado"
+            ]
+
+            actualizaciones.append(
+                {
+                    "range": f"{letra_estado}{fila}",
+                    "values": [[estado]]
+                }
             )
 
-            if fila is None:
-                continue
-
-            estado_anterior = actualizar_registro(
-                hoja,
-                codigo,
-                estado,
-                ubicacion
+            actualizaciones.append(
+                {
+                    "range": f"{letra_ubicacion}{fila}",
+                    "values": [[ubicacion]]
+                }
             )
-
-            if estado_anterior is None:
-                continue
 
             tipo_registro = registro.get(
                 "Tipo",
                 material
             )
 
-            # -----------------------------
-            # SALIDA
-            # -----------------------------
-
             if opcion == "📤 Registrar salida":
 
-                out_sheet.append_row(
+                filas_out.append(
                     [
                         fecha,
                         material,
@@ -480,17 +484,12 @@ elif opcion in [
                         estado,
                         ubicacion,
                         observacion
-                    ],
-                    value_input_option="USER_ENTERED"
+                    ]
                 )
-
-            # -----------------------------
-            # INGRESO
-            # -----------------------------
 
             elif opcion == "📥 Registrar ingreso":
 
-                in_sheet.append_row(
+                filas_in.append(
                     [
                         fecha,
                         material,
@@ -499,17 +498,12 @@ elif opcion in [
                         estado,
                         ubicacion,
                         observacion
-                    ],
-                    value_input_option="USER_ENTERED"
+                    ]
                 )
-
-            # -----------------------------
-            # CAMBIO ESTADO
-            # -----------------------------
 
             else:
 
-                log_sheet.append_row(
+                filas_log.append(
                     [
                         fecha,
                         material,
@@ -517,11 +511,45 @@ elif opcion in [
                         estado_anterior,
                         estado,
                         observacion
-                    ],
-                    value_input_option="USER_ENTERED"
+                    ]
                 )
 
             actualizados += 1
+
+        # =====================================
+        # BATCH UPDATE
+        # =====================================
+
+        if actualizaciones:
+
+            hoja.batch_update(
+                actualizaciones
+            )
+
+        # =====================================
+        # HISTORIAL
+        # =====================================
+
+        if filas_out:
+
+            out_sheet.append_rows(
+                filas_out,
+                value_input_option="USER_ENTERED"
+            )
+
+        if filas_in:
+
+            in_sheet.append_rows(
+                filas_in,
+                value_input_option="USER_ENTERED"
+            )
+
+        if filas_log:
+
+            log_sheet.append_rows(
+                filas_log,
+                value_input_option="USER_ENTERED"
+            )
 
         obtener_registros.clear()
 
