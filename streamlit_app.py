@@ -1,12 +1,19 @@
 import streamlit as st
 
 from utils.google_sheets import conectar_google
+
 from utils.materiales import (
     MATERIALES,
     UBICACIONES
 )
-from utils.estados import obtener_estados
-from utils.movimientos import ahora
+
+from utils.estados import (
+    obtener_estados
+)
+
+from utils.movimientos import (
+    ahora
+)
 
 # =====================================================
 # CONFIG
@@ -19,14 +26,34 @@ st.set_page_config(
 )
 
 # =====================================================
-# GOOGLE
+# GOOGLE SHEETS
 # =====================================================
 
 spreadsheet = conectar_google()
 
-in_sheet = spreadsheet.worksheet("IN")
-out_sheet = spreadsheet.worksheet("OUT")
-log_sheet = spreadsheet.worksheet("LOG_ESTADOS")
+in_sheet = spreadsheet.worksheet(
+    "IN"
+)
+
+out_sheet = spreadsheet.worksheet(
+    "OUT"
+)
+
+log_sheet = spreadsheet.worksheet(
+    "LOG_ESTADOS"
+)
+
+# =====================================================
+# TÍTULO
+# =====================================================
+
+st.title(
+    "📦 Control de Materiales FAEST"
+)
+
+st.caption(
+    "Control de ubicación, estado y movimientos"
+)
 
 # =====================================================
 # FUNCIONES
@@ -81,19 +108,24 @@ def actualizar_registro(
     )
 
     if fila is None:
+
         return None
 
     encabezados = hoja.row_values(1)
 
-    col_estado = encabezados.index(
+    col_estado = (
+        encabezados.index("Estado")
+        + 1
+    )
+
+    col_ubicacion = (
+        encabezados.index("Ubicación")
+        + 1
+    )
+
+    estado_anterior = registro[
         "Estado"
-    ) + 1
-
-    col_ubicacion = encabezados.index(
-        "Ubicación"
-    ) + 1
-
-    estado_anterior = registro["Estado"]
+    ]
 
     hoja.update_cell(
         fila,
@@ -108,13 +140,6 @@ def actualizar_registro(
     )
 
     return estado_anterior
-
-
-# =====================================================
-# TITULO
-# =====================================================
-
-st.title("📦 Control de Materiales FAEST")
 
 # =====================================================
 # MENU
@@ -132,21 +157,19 @@ opcion = st.radio(
 )
 
 # =====================================================
-# MATERIAL
+# SELECCIÓN DE MATERIAL
 # =====================================================
 
 material = st.selectbox(
     "Material",
-    list(MATERIALES.keys())
+    list(
+        MATERIALES.keys()
+    )
 )
 
 datos = obtener_registros(
     material
 )
-
-# =====================================================
-# TIPO
-# =====================================================
 
 tipo = None
 
@@ -165,10 +188,6 @@ if material != "Máscaras":
         tipos
     )
 
-# =====================================================
-# DETALLE
-# =====================================================
-
 detalle = None
 
 if material == "Encías":
@@ -185,10 +204,6 @@ if material == "Encías":
         "Detalle",
         detalles
     )
-
-# =====================================================
-# FILTRADO BASE
-# =====================================================
 
 filtrados = datos.copy()
 
@@ -246,21 +261,48 @@ if opcion == "🔍 Consultar":
         if x["Estado"] == "Sin existencia"
     )
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-    c1.metric("Total", total)
-    c2.metric("SMP", smp)
-    c3.metric("La Molina", molina)
-    c4.metric("Deteriorados", deteriorados)
-    c5.metric("Sin existencia", sin_existencia)
+    c1.metric(
+        "Total",
+        total
+    )
+
+    c2.metric(
+        "SMP",
+        smp
+    )
+
+    c3.metric(
+        "La Molina",
+        molina
+    )
+
+    c4.metric(
+        "Buenos",
+        buenos
+    )
+
+    c5.metric(
+        "Deteriorados",
+        deteriorados
+    )
+
+    c6.metric(
+        "Sin existencia",
+        sin_existencia
+    )
+
+    st.markdown("---")
 
     st.dataframe(
         filtrados,
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
 
 # =====================================================
-# MOVIMIENTOS
+# MOVIMIENTOS Y ESTADOS
 # =====================================================
 
 elif opcion in [
@@ -269,19 +311,24 @@ elif opcion in [
     "🛠 Actualizar estado"
 ]:
 
-    codigos_disponibles = [
-        x["Código"]
-        for x in filtrados
-    ]
+    codigos_disponibles = sorted(
+        [
+            x["Código"]
+            for x in filtrados
+        ]
+    )
 
     modo = st.radio(
-        "Modo",
+        "Modo de selección",
         [
             "Unidad",
+            "Rango",
             "Selección múltiple"
         ],
         horizontal=True
     )
+
+    codigos = []
 
     # -----------------------------------
     # UNIDAD
@@ -289,29 +336,67 @@ elif opcion in [
 
     if modo == "Unidad":
 
-        codigo_seleccionado = st.selectbox(
+        codigo = st.selectbox(
             "Código",
             codigos_disponibles
         )
 
-        codigos = [
-            codigo_seleccionado
-        ]
+        codigos = [codigo]
 
     # -----------------------------------
-    # SELECCIÓN MÚLTIPLE
+    # RANGO
+    # -----------------------------------
+
+    elif modo == "Rango":
+
+        numeros = sorted(
+            [
+                codigo.split("-")[-1]
+                for codigo in codigos_disponibles
+            ]
+        )
+
+        desde = st.selectbox(
+            "Desde",
+            numeros
+        )
+
+        hasta = st.selectbox(
+            "Hasta",
+            numeros,
+            index=len(numeros) - 1
+        )
+
+        inicio = int(desde)
+        fin = int(hasta)
+
+        codigos = [
+            codigo
+            for codigo in codigos_disponibles
+            if inicio <= int(
+                codigo.split("-")[-1]
+            ) <= fin
+        ]
+
+        st.info(
+            f"Se seleccionarán "
+            f"{len(codigos)} registros"
+        )
+
+    # -----------------------------------
+    # MULTIPLE
     # -----------------------------------
 
     else:
 
         codigos = st.multiselect(
-            "Selecciona los códigos",
+            "Selecciona códigos",
             codigos_disponibles
         )
 
-    # -----------------------------------
-    # ESTADO
-    # -----------------------------------
+        st.info(
+            f"{len(codigos)} seleccionados"
+        )
 
     estado = st.selectbox(
         "Estado",
@@ -321,39 +406,25 @@ elif opcion in [
         )
     )
 
-    # -----------------------------------
-    # UBICACIÓN
-    # -----------------------------------
-
     ubicacion = st.selectbox(
         "Ubicación",
         UBICACIONES
     )
-
-    # -----------------------------------
-    # OBSERVACIÓN
-    # -----------------------------------
 
     observacion = st.text_area(
         "Observación"
     )
 
     # -----------------------------------
-    # BOTÓN
+    # BOTON
     # -----------------------------------
 
-    texto_boton = (
-        "Registrar cambio"
-        if opcion == "🛠 Actualizar estado"
-        else "Guardar movimiento"
-    )
-
     if st.button(
-        texto_boton,
+        "Guardar",
         use_container_width=True
     ):
 
-        if not codigos:
+        if len(codigos) == 0:
 
             st.warning(
                 "Selecciona al menos un código."
@@ -391,12 +462,12 @@ elif opcion in [
 
             tipo_registro = registro.get(
                 "Tipo",
-                "N/A"
+                material
             )
 
-            # -----------------------------------
-            # REGISTRAR SALIDA
-            # -----------------------------------
+            # -----------------------------
+            # SALIDA
+            # -----------------------------
 
             if opcion == "📤 Registrar salida":
 
@@ -413,9 +484,9 @@ elif opcion in [
                     value_input_option="USER_ENTERED"
                 )
 
-            # -----------------------------------
-            # REGISTRAR INGRESO
-            # -----------------------------------
+            # -----------------------------
+            # INGRESO
+            # -----------------------------
 
             elif opcion == "📥 Registrar ingreso":
 
@@ -432,9 +503,9 @@ elif opcion in [
                     value_input_option="USER_ENTERED"
                 )
 
-            # -----------------------------------
-            # ACTUALIZAR ESTADO
-            # -----------------------------------
+            # -----------------------------
+            # CAMBIO ESTADO
+            # -----------------------------
 
             else:
 
@@ -455,7 +526,7 @@ elif opcion in [
         obtener_registros.clear()
 
         st.success(
-            f"✅ {actualizados} registro(s) actualizados correctamente."
+            f"✅ {actualizados} registros actualizados."
         )
 
-        st.balloons()
+        st.rerun()
