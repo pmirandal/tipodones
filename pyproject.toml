@@ -1,11 +1,15 @@
 [project]
-name = "blank-app-template"
+name = "control-tipodones-faest"
 version = "0.1.0"
-description = "A simple Streamlit app template."
+description = "Sistema de control de ubicación y estado de tipodones"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
+
 dependencies = [
     "streamlit>=1.61.1",
+    "gspread>=6.2.1",
+    "google-auth>=2.40.3",
+    "pandas>=2.3.2"
 ]
 
 [tool.uv]
