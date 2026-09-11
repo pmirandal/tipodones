@@ -25,3 +25,10 @@ ESTADOS_CIAIII = [
     "Deteriorado",
     "Sin existencia"
 ]
+
+ESTADOS_MASCARAS = [
+    "Nuevo/sellado",
+    "Bueno",
+    "Deteriorado",
+    "Sin existencia"
+]

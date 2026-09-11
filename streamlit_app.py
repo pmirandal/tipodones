@@ -125,15 +125,17 @@ datos = obtener_registros(
 
 tipo = None
 
-if material != "Máscaras":
+tipo = None
 
-    tipos = sorted(
-        set(
-            fila.get("Tipo", "")
-            for fila in datos
-            if fila.get("Tipo", "")
-        )
+tipos = sorted(
+    set(
+        fila.get("Tipo", "")
+        for fila in datos
+        if fila.get("Tipo", "")
     )
+)
+
+if len(tipos) > 0:
 
     tipo = st.selectbox(
         "Tipo",
@@ -167,7 +169,7 @@ if material == "Encías":
 
 filtrados = datos.copy()
 
-if material != "Máscaras":
+if tipo:
 
     filtrados = [
         x
