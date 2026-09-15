@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.google_sheets import conectar_google
+
 from utils.materiales import (
     MATERIALES,
     UBICACIONES
@@ -26,8 +27,11 @@ st.set_page_config(
 # =====================================================
 # GOOGLE SHEETS
 # =====================================================
+@st.cache_resource
+def obtener_spreadsheet():
+    return conectar_google()
 
-spreadsheet = conectar_google()
+spreadsheet = obtener_spreadsheet()
 
 in_sheet = spreadsheet.worksheet(
     "IN"
@@ -64,7 +68,7 @@ def obtener_hoja(material):
     )
 
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=300)
 def obtener_registros(material):
 
     hoja = obtener_hoja(material)
@@ -280,6 +284,35 @@ elif opcion in [
 
         codigos = [codigo]
 
+        registro_actual = next(
+            (
+                r
+                for r in filtrados
+                if r["Código"] == codigo
+            ),
+            None
+        )
+
+        if registro_actual:
+
+            st.info(
+                f"""
+    Código: {registro_actual['Código']}
+
+    Tipo: {registro_actual.get('Tipo', 'N/A')}
+
+    Estado actual: {registro_actual['Estado']}
+
+    Ubicación actual: {registro_actual['Ubicación']}
+    """
+            )
+
+            if registro_actual["Estado"] == "Sin existencia":
+
+                st.error(
+                    "⚠️ Este material está marcado como "
+                    "'Sin existencia'."
+                )
     # ------------------------------------
     # RANGO
     # ------------------------------------
@@ -319,6 +352,42 @@ elif opcion in [
             f"Se seleccionarán {len(codigos)} registros"
         )
 
+        sin_existencia = []
+
+        for codigo_sel in codigos:
+
+            registro = next(
+                (
+                    r
+                    for r in filtrados
+                    if r["Código"] == codigo_sel
+                ),
+                None
+            )
+
+            if (
+                registro
+                and registro["Estado"]
+                == "Sin existencia"
+            ):
+
+                sin_existencia.append(
+                    codigo_sel
+                )
+
+        if sin_existencia:
+
+            st.warning(
+                f"""
+        Seleccionados: {len(codigos)}
+
+        Sin existencia: {len(sin_existencia)}
+
+        Códigos:
+        {", ".join(sin_existencia)}
+        """
+            )
+
     # ------------------------------------
     # MULTIPLE
     # ------------------------------------
@@ -333,6 +402,42 @@ elif opcion in [
         st.info(
             f"{len(codigos)} seleccionados"
         )
+
+        sin_existencia = []
+
+        for codigo_sel in codigos:
+
+            registro = next(
+                (
+                    r
+                    for r in filtrados
+                    if r["Código"] == codigo_sel
+                ),
+                None
+            )
+
+            if (
+                registro
+                and registro["Estado"]
+                == "Sin existencia"
+            ):
+
+                sin_existencia.append(
+                    codigo_sel
+                )
+
+        if sin_existencia:
+
+            st.warning(
+                f"""
+        Seleccionados: {len(codigos)}
+
+        Sin existencia: {len(sin_existencia)}
+
+        Códigos:
+        {", ".join(sin_existencia)}
+        """
+            )
 
     estado = st.selectbox(
         "Estado",
@@ -436,6 +541,54 @@ elif opcion in [
                 )
 
                 st.stop()
+
+        # =====================================
+        # VALIDAR EXISTENCIA PARA
+        # INGRESOS Y SALIDAS
+        # =====================================
+
+        if opcion in [
+            "📤 Registrar salida",
+            "📥 Registrar ingreso"
+        ]:
+
+            no_existentes = []
+
+            for codigo in codigos:
+
+                if codigo not in indice_codigos:
+                    continue
+
+                _, registro = indice_codigos[codigo]
+
+                if registro["Estado"] == "Sin existencia":
+
+                    no_existentes.append(
+                        codigo
+                    )
+
+            if no_existentes:
+
+                lista = ", ".join(
+                    no_existentes
+                )
+
+                accion = (
+                    "salida"
+                    if opcion == "📤 Registrar salida"
+                    else "ingreso"
+                )
+
+                st.error(
+                    f"❌ No se puede registrar la {accion}.\n\n"
+                    f"Los siguientes materiales "
+                    f"tienen estado "
+                    f"'Sin existencia':\n\n"
+                    f"{lista}"
+                )
+
+                st.stop()
+        
         # =====================================
         # CALCULAR COLUMNAS
         # =====================================
