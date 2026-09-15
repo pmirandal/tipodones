@@ -1,7 +1,5 @@
 import streamlit as st
-
 from utils.google_sheets import conectar_google
-
 from utils.materiales import (
     MATERIALES,
     UBICACIONES
@@ -404,7 +402,40 @@ elif opcion in [
                 fila_num,
                 registro
             )
+        # =====================================
+        # VALIDAR EXISTENCIA PARA SALIDAS
+        # =====================================
 
+        if opcion == "📤 Registrar salida":
+
+            no_existentes = []
+
+            for codigo in codigos:
+
+                if codigo not in indice_codigos:
+                    continue
+
+                _, registro = indice_codigos[codigo]
+
+                if registro["Estado"] == "Sin existencia":
+
+                    no_existentes.append(
+                        codigo
+                    )
+
+            if no_existentes:
+
+                lista = ", ".join(
+                    no_existentes
+                )
+
+                st.error(
+                    "❌ No se puede registrar la salida.\n\n"
+                    "Los siguientes códigos tienen estado "
+                    f"'Sin existencia':\n\n{lista}"
+                )
+
+                st.stop()
         # =====================================
         # CALCULAR COLUMNAS
         # =====================================
